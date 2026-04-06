@@ -12,7 +12,13 @@ load_dotenv(".env", override=True)
 TASTYTRADE_USERNAME    = os.getenv("TASTYTRADE_USERNAME", "")
 TASTYTRADE_PASSWORD    = os.getenv("TASTYTRADE_PASSWORD", "")
 TASTYTRADE_ACCOUNT_NUM = os.getenv("TASTYTRADE_ACCOUNT_NUM", "")
-TASTYTRADE_PAPER       = os.getenv("TASTYTRADE_PAPER", "true").lower() == "true"
+TASTYTRADE_PAPER       = os.getenv("TASTYTRADE_PAPER", "false").lower() == "true"
+
+# DRY_RUN: authenticate with production and pull real market data,
+# but intercept all order placement calls — nothing is actually traded.
+# Use this to paper trade against your live account without a sandbox.
+# Set to false only when ready to execute real trades.
+DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
 
 TASTYTRADE_BASE_URL = (
     "https://api.cert.tastyworks.com" if TASTYTRADE_PAPER
@@ -22,13 +28,13 @@ TASTYTRADE_BASE_URL = (
 # ── Strategy toggles ──────────────────────────────────────────────────────────
 SWING_ENABLED = os.getenv("SWING_ENABLED", "true").lower() == "true"
 ZEDTE_ENABLED = os.getenv("ZEDTE_ENABLED", "true").lower() == "true"
-CARRY_ENABLED = os.getenv("CARRY_ENABLED", "false").lower() == "true"  # enable after OANDA setup
+CARRY_ENABLED = os.getenv("CARRY_ENABLED", "false").lower() == "true"
 
 # ── Capital allocation ────────────────────────────────────────────────────────
 TOTAL_CAPITAL         = float(os.getenv("TOTAL_CAPITAL", "20000"))
-SWING_CAPITAL_PCT     = float(os.getenv("SWING_CAPITAL_PCT", "0.60"))   # 60% swing
-ZEDTE_CAPITAL_PCT     = float(os.getenv("ZEDTE_CAPITAL_PCT", "0.20"))   # 20% 0DTE
-CARRY_CAPITAL_PCT     = float(os.getenv("CARRY_CAPITAL_PCT", "0.20"))   # 20% forex carry
+SWING_CAPITAL_PCT     = float(os.getenv("SWING_CAPITAL_PCT", "0.60"))
+ZEDTE_CAPITAL_PCT     = float(os.getenv("ZEDTE_CAPITAL_PCT", "0.20"))
+CARRY_CAPITAL_PCT     = float(os.getenv("CARRY_CAPITAL_PCT", "0.20"))
 
 # ── Swing strategy (30-45 DTE bull put spreads) ───────────────────────────────
 SWING_MAX_SPREADS      = int(os.getenv("SWING_MAX_SPREADS", "4"))
@@ -67,14 +73,13 @@ CARRY_MIN_HOLD       = float(os.getenv("CARRY_MIN_HOLD", "1.0"))
 CARRY_LEVERAGE       = float(os.getenv("CARRY_LEVERAGE", "3.0"))
 CARRY_REBALANCE_DAY  = int(os.getenv("CARRY_REBALANCE_DAY", "1"))
 
-# ── Entry filters (both options strategies) ────────────────────────────────────
+# ── Entry filters ────────────────────────────────────────────────────────────────
 VIX_RANK_MIN           = float(os.getenv("VIX_RANK_MIN", "50"))
 VIX_RANK_LOOKBACK_DAYS = int(os.getenv("VIX_RANK_LOOKBACK_DAYS", "252"))
 SPY_SMA_LOOKBACK       = int(os.getenv("SPY_SMA_LOOKBACK", "200"))
 SPY_MAX_BELOW_SMA_PCT  = float(os.getenv("SPY_MAX_BELOW_SMA_PCT", "0.15"))
 FOMC_BLACKOUT_DAYS     = int(os.getenv("FOMC_BLACKOUT_DAYS", "5"))
 
-# 0DTE additional filters
 ZEDTE_VIX_MIN     = float(os.getenv("ZEDTE_VIX_MIN", "14"))
 ZEDTE_VIX_MAX     = float(os.getenv("ZEDTE_VIX_MAX", "45"))
 ZEDTE_MIN_ATR_PCT = float(os.getenv("ZEDTE_MIN_ATR_PCT", "0.003"))
