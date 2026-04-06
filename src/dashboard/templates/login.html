@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trader-VIX</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #0d0d0d; color: #f0ede8;
+         min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500&display=swap');
+  .card { background: #161616; border: 1px solid rgba(255,255,255,0.07);
+          border-radius: 12px; padding: 40px; width: 340px; }
+  .eyebrow { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.12em;
+             color: #35996A; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 28px; }
+  input[type="password"] { width: 100%; background: #1e1e1e; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 10px 14px; color: #f0ede8; font-size: 14px;
+    font-family: 'DM Mono', monospace; margin-bottom: 14px; outline: none; }
+  input[type="password"]:focus { border-color: #35996A; }
+  button { width: 100%; background: #35996A; color: white; border: none;
+           border-radius: 6px; padding: 10px; font-size: 14px; font-weight: 500; cursor: pointer; }
+  button:hover { background: #2e8059; }
+  .error { color: #f56b4e; font-size: 12px; margin-bottom: 12px; font-family: 'DM Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="eyebrow">Meridian</div>
+  <h1>Trader-VIX</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST">
+    <input type="password" name="password" placeholder="Password" autofocus>
+    <button type="submit">Enter</button>
+  </form>
+</div>
+</body>
+</html>
