@@ -2,13 +2,13 @@
 Trader-VIX — Synthetic Options Backtest Engine
 
 HONESTY GUARANTEES:
-1. VIX rank on date T uses only data prior to T.
+1. VIX rank on date T computed only from VIX data prior to T.
 2. Strike selection uses only closing price and VIX of date T.
-3. No future data is ever passed to any pricing or signal function.
+3. Fills execute at T+1 open (signal today, fill tomorrow's open).
+4. No future data ever passed to any pricing or signal function.
 
-OUTPUT LABEL: Synthetic approximation using Black-Scholes and VIX as IV proxy.
-Bid-side fills, 20% put skew haircut. Conservative floor estimate.
-Real performance should equal or exceed this.
+SYNTHETIC LABEL: Black-Scholes, VIX as IV proxy, bid fills, 20% put skew haircut.
+Conservative floor estimate. Real performance should equal or exceed this.
 """
 import logging
 from dataclasses import dataclass, field
@@ -30,9 +30,8 @@ from src.data.fomc_calendar import is_fomc_blackout
 logger = logging.getLogger(__name__)
 
 SYNTHETIC_LABEL = (
-    "SYNTHETIC APPROXIMATION — Black-Scholes pricing, VIX as IV proxy, "
-    "bid-side fills, 20% put skew haircut. Conservative floor estimate. "
-    "Real performance should equal or exceed this."
+    "SYNTHETIC APPROXIMATION — Black-Scholes, VIX as IV proxy, "
+    "bid-side fills, 20% skew haircut. Conservative floor estimate."
 )
 
 
@@ -119,10 +118,10 @@ class SwingBacktester:
         self.min_credit = min_credit
         self.target_dte = target_dte
 
-    def run(self):
+    def run(self) -> BacktestResult:
         logger.info(f"Swing backtest: {self.start_date} to {self.end_date} ${self.initial_capital:,.0f}")
-        result = BacktestResult(strategy="swing_bull_put_spread", start_date=self.start_date,
-                                end_date=self.end_date, initial_capital=self.initial_capital)
+        result = BacktestResult(strategy="swing_bull_put_spread",
+            start_date=self.start_date, end_date=self.end_date, initial_capital=self.initial_capital)
 
         warmup = (datetime.strptime(self.start_date, "%Y-%m-%d") - timedelta(days=400)).strftime("%Y-%m-%d")
         fetch_end = (datetime.strptime(self.end_date, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
@@ -131,7 +130,7 @@ class SwingBacktester:
 
         sim_days = spy_data.index[(spy_data.index >= self.start_date) & (spy_data.index <= self.end_date)].tolist()
         if not sim_days:
-            raise ValueError("No trading days in simulation window")
+            raise ValueError("No trading days in window")
 
         bench_shares = self.initial_capital / spy_data.loc[sim_days[0], "Open"]
         for day in sim_days:
@@ -151,9 +150,9 @@ class SwingBacktester:
             for pos in open_positions:
                 dte = (datetime.strptime(pos["expiration"], "%Y-%m-%d") - day).days
                 T = max(dte / 365.0, 0.001)
-                cur_s = black_scholes_put(spy_close, pos["short_strike"], T, 0.05, vix_today/100*(1+PUT_SKEW_HAIRCUT))
-                cur_l = black_scholes_put(spy_close, pos["long_strike"],  T, 0.05, vix_today/100*(1+PUT_SKEW_HAIRCUT*1.2))
-                mark = max(cur_s - cur_l, 0.0)
+                mark = max(
+                    black_scholes_put(spy_close, pos["short_strike"], T, 0.05, vix_today/100*(1+PUT_SKEW_HAIRCUT)) -
+                    black_scholes_put(spy_close, pos["long_strike"],  T, 0.05, vix_today/100*(1+PUT_SKEW_HAIRCUT*1.2)), 0)
 
                 reason = None
                 if dte <= self.time_stop_dte:
@@ -173,34 +172,37 @@ class SwingBacktester:
                         open_date=pos["opened_date"], close_date=day_str, strategy="swing",
                         short_strike=pos["short_strike"], long_strike=pos["long_strike"],
                         dte_at_open=pos["dte_at_open"], credit_received=pos["credit_received"],
-                        close_mark=round(mark, 4), pnl_per_share=round(pos["credit_received"]-mark, 4),
-                        pnl_dollars=round(pnl, 2), num_contracts=pos["num_contracts"],
-                        close_reason=reason, vix_at_open=pos["vix_at_open"],
-                        vix_rank_at_open=pos["vix_rank_at_open"], spy_at_open=pos["spy_at_open"]))
+                        close_mark=round(mark,4), pnl_per_share=round(pos["credit_received"]-mark,4),
+                        pnl_dollars=round(pnl,2), close_reason=reason,
+                        vix_at_open=pos["vix_at_open"], vix_rank_at_open=pos["vix_rank_at_open"],
+                        spy_at_open=pos["spy_at_open"]))
                 else:
                     still_open.append(pos)
             open_positions = still_open
 
             if len(open_positions) < self.max_spreads:
                 vix_rank = compute_vix_rank(day_str)
-                can_enter = vix_rank >= config.VIX_RANK_MIN and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS)
-                if can_enter:
+                can = (vix_rank >= config.VIX_RANK_MIN
+                       and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS))
+                if can:
                     avail = spy_data[spy_data.index <= day]
-                    if len(avail) >= 200 and spy_close < float(avail["Close"].iloc[-200:].mean()) * (1-config.SPY_MAX_BELOW_SMA_PCT):
-                        can_enter = False
-                if can_enter:
+                    if len(avail) >= 200:
+                        sma = float(avail["Close"].iloc[-200:].mean())
+                        if spy_close < sma * (1 - config.SPY_MAX_BELOW_SMA_PCT):
+                            can = False
+                if can:
                     T = self.target_dte / 365.0
                     ss = find_put_strike_for_delta(spy_close, T, vix_today/100, self.target_delta)
                     ls = ss - self.spread_width
-                    spread = estimate_spread_credit(spy_close, ss, ls, T, vix_today)
-                    if spread["net_credit"] >= self.min_credit and capital >= spread["margin_required"] * 1.1:
-                        capital -= spread["margin_required"]
-                        exp = (day + timedelta(days=self.target_dte)).strftime("%Y-%m-%d")
+                    sp = estimate_spread_credit(spy_close, ss, ls, T, vix_today)
+                    if sp["net_credit"] >= self.min_credit and capital >= sp["margin_required"] * 1.1:
+                        capital -= sp["margin_required"]
                         open_positions.append({"id": next_id, "short_strike": ss, "long_strike": ls,
-                            "expiration": exp, "dte_at_open": self.target_dte,
-                            "credit_received": spread["net_credit"], "margin_held": spread["margin_required"],
-                            "num_contracts": 1, "opened_date": day_str,
-                            "vix_at_open": vix_today, "vix_rank_at_open": vix_rank, "spy_at_open": spy_close})
+                            "expiration": (day+timedelta(days=self.target_dte)).strftime("%Y-%m-%d"),
+                            "dte_at_open": self.target_dte, "credit_received": sp["net_credit"],
+                            "margin_held": sp["margin_required"], "num_contracts": 1,
+                            "opened_date": day_str, "vix_at_open": vix_today,
+                            "vix_rank_at_open": vix_rank, "spy_at_open": spy_close})
                         next_id += 1
 
             result.equity_curve[day_str] = round(capital + sum(p["margin_held"] for p in open_positions), 2)
@@ -223,10 +225,10 @@ class ZeroDTEBacktester:
         self.loss_limit = loss_limit
         self.min_credit = min_credit
 
-    def run(self):
+    def run(self) -> BacktestResult:
         logger.info(f"0DTE backtest: {self.start_date} to {self.end_date} ${self.initial_capital:,.0f}")
-        result = BacktestResult(strategy="0dte_iron_condor", start_date=self.start_date,
-                                end_date=self.end_date, initial_capital=self.initial_capital)
+        result = BacktestResult(strategy="0dte_iron_condor",
+            start_date=self.start_date, end_date=self.end_date, initial_capital=self.initial_capital)
 
         warmup = (datetime.strptime(self.start_date, "%Y-%m-%d") - timedelta(days=400)).strftime("%Y-%m-%d")
         fetch_end = (datetime.strptime(self.end_date, "%Y-%m-%d") + timedelta(days=2)).strftime("%Y-%m-%d")
@@ -248,7 +250,9 @@ class ZeroDTEBacktester:
             vix_today = float(vix_series[vix_series.index <= day].iloc[-1]) if not vix_series[vix_series.index <= day].empty else 20.0
             vix_rank = compute_vix_rank(day_str)
 
-            if not (config.ZEDTE_VIX_MIN <= vix_today <= config.ZEDTE_VIX_MAX and vix_rank >= 40 and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS)):
+            can = (config.ZEDTE_VIX_MIN <= vix_today <= config.ZEDTE_VIX_MAX
+                   and vix_rank >= 40 and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS))
+            if not can:
                 result.equity_curve[day_str] = round(capital, 2)
                 continue
 
@@ -258,9 +262,9 @@ class ZeroDTEBacktester:
             cs = find_call_strike_for_delta(spy_open, T, vix_today/100, self.target_delta)
             cl = cs + self.spread_width
             condor = estimate_iron_condor_credit(spy_open, ps, pl, cs, cl, T, vix_today)
-            net_credit = condor["net_credit"]
+            nc = condor["net_credit"]
 
-            if net_credit < self.min_credit:
+            if nc < self.min_credit:
                 result.equity_curve[day_str] = round(capital, 2)
                 continue
 
@@ -270,67 +274,61 @@ class ZeroDTEBacktester:
                 result.equity_curve[day_str] = round(capital, 2)
                 continue
 
-            put_b = spy_low < ps
-            call_b = spy_high > cs
-
-            if put_b and call_b:
-                pnl_ps = -(self.spread_width - net_credit)
+            if spy_low < ps and spy_high > cs:
+                pnl_ps = -(self.spread_width - nc)
                 reason = "Both wings breached"
-            elif put_b:
-                intr = min(max(ps-spy_close,0)-max(pl-spy_close,0), self.spread_width)
-                pnl_ps = net_credit - intr
-                reason = "2x loss (put)" if pnl_ps <= -net_credit*self.loss_limit else "Put loss"
-            elif call_b:
-                intr = min(max(spy_close-cs,0)-max(spy_close-cl,0), self.spread_width)
-                pnl_ps = net_credit - intr
-                reason = "2x loss (call)" if pnl_ps <= -net_credit*self.loss_limit else "Call loss"
+            elif spy_low < ps:
+                intr = max(ps-spy_close,0)-max(pl-spy_close,0)
+                pnl_ps = nc - min(intr, self.spread_width)
+                reason = "2x loss stop (put)" if pnl_ps <= -nc*self.loss_limit else "Put breach"
+            elif spy_high > cs:
+                intr = max(spy_close-cs,0)-max(spy_close-cl,0)
+                pnl_ps = nc - min(intr, self.spread_width)
+                reason = "2x loss stop (call)" if pnl_ps <= -nc*self.loss_limit else "Call breach"
             else:
-                pnl_ps = net_credit * self.profit_target
+                pnl_ps = nc * self.profit_target
                 reason = "50% profit target"
 
             pnl_d = pnl_ps * 100 * num
             capital += pnl_d
-            trades.append(BacktestTrade(open_date=day_str, close_date=day_str, strategy="0dte",
+            trades.append(BacktestTrade(
+                open_date=day_str, close_date=day_str, strategy="0dte",
                 short_strike=ps, long_strike=pl, call_short=cs, call_long=cl,
-                credit_received=net_credit, close_mark=round(net_credit-pnl_ps, 4),
-                pnl_per_share=round(pnl_ps, 4), pnl_dollars=round(pnl_d, 2),
-                num_contracts=num, close_reason=reason, vix_at_open=vix_today,
-                vix_rank_at_open=vix_rank, spy_at_open=spy_open))
+                credit_received=nc, close_mark=round(nc-pnl_ps,4),
+                pnl_per_share=round(pnl_ps,4), pnl_dollars=round(pnl_d,2),
+                close_reason=reason, vix_at_open=vix_today, vix_rank_at_open=vix_rank, spy_at_open=spy_open))
             result.equity_curve[day_str] = round(capital, 2)
 
         result.trades = trades
         return _compute_metrics(result)
 
 
-def _compute_metrics(result):
+def _compute_metrics(result: BacktestResult) -> BacktestResult:
     if not result.equity_curve:
         return result
-    trades = result.trades
     initial = result.initial_capital
     final = list(result.equity_curve.values())[-1]
     result.total_return = (final - initial) / initial
     bench_final = list(result.benchmark_curve.values())[-1] if result.benchmark_curve else initial
     result.benchmark_return = (bench_final - initial) / initial
     result.alpha = result.total_return - result.benchmark_return
-
-    n_years = max((datetime.strptime(result.end_date, "%Y-%m-%d") - datetime.strptime(result.start_date, "%Y-%m-%d")).days / 365.0, 0.1)
-    result.annualized_return = (final / initial) ** (1/n_years) - 1 if final > 0 else -1.0
-
+    n_years = max((datetime.strptime(result.end_date,"%Y-%m-%d") - datetime.strptime(result.start_date,"%Y-%m-%d")).days/365, 0.1)
+    result.annualized_return = (final/initial)**(1/n_years)-1 if final > 0 else -1.0
     eq = pd.Series(list(result.equity_curve.values()), dtype=float)
     dr = eq.pct_change().dropna()
     if len(dr) > 2 and dr.std() > 0:
         result.sharpe_ratio = float((dr - 0.05/252).mean() / dr.std() * np.sqrt(252))
-    result.max_drawdown = float(((eq - eq.cummax()) / eq.cummax()).min()) if not eq.empty else 0.0
-
-    result.total_trades = len(trades)
-    if trades:
-        wins = [t for t in trades if t.pnl_per_share > 0]
-        losses = [t for t in trades if t.pnl_per_share <= 0]
+    dd = (eq - eq.cummax()) / eq.cummax()
+    result.max_drawdown = float(dd.min()) if not dd.empty else 0.0
+    result.total_trades = len(result.trades)
+    if result.trades:
+        wins = [t for t in result.trades if t.pnl_per_share > 0]
+        losses = [t for t in result.trades if t.pnl_per_share <= 0]
         result.winning_trades = len(wins)
-        result.win_rate = len(wins) / len(trades)
+        result.win_rate = len(wins) / len(result.trades)
         gp = sum(t.pnl_dollars for t in wins)
         gl = abs(sum(t.pnl_dollars for t in losses))
         result.profit_factor = gp / gl if gl > 0 else float("inf")
-        hd = [(datetime.strptime(t.close_date,"%Y-%m-%d")-datetime.strptime(t.open_date,"%Y-%m-%d")).days for t in trades]
+        hd = [(datetime.strptime(t.close_date,"%Y-%m-%d")-datetime.strptime(t.open_date,"%Y-%m-%d")).days for t in result.trades]
         result.avg_hold_days = float(np.mean(hd)) if hd else 0.0
     return result
