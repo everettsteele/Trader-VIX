@@ -17,7 +17,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 app.config["SESSION_COOKIE_HTTPONLY"] = True
-executor = None  # attached by main.py at startup
+
+executor = None  # attached by main.py
 
 
 def _require_auth():
@@ -53,12 +54,12 @@ def index():
     open_zedte = get_open_zedte_positions(db)
     rows = db.execute("SELECT ts, net_liquidating_value FROM portfolio_snapshots ORDER BY ts DESC LIMIT 90").fetchall()
     snapshots = list(reversed([{"ts": r["ts"][:10], "nlv": r["net_liquidating_value"]} for r in rows]))
-    closed_swing = list(db.execute("SELECT * FROM swing_positions WHERE status='closed' ORDER BY close_date DESC LIMIT 20").fetchall())
-    closed_zedte = list(db.execute("SELECT * FROM zedte_positions WHERE status='closed' ORDER BY close_time DESC LIMIT 20").fetchall())
+    closed_swing = db.execute("SELECT * FROM swing_positions WHERE status='closed' ORDER BY close_date DESC LIMIT 20").fetchall()
+    closed_zedte = db.execute("SELECT * FROM zedte_positions WHERE status='closed' ORDER BY close_time DESC LIMIT 20").fetchall()
     return render_template("index.html",
         open_swing=open_swing, open_zedte=open_zedte,
         snapshots=json.dumps(snapshots),
-        closed_swing=closed_swing, closed_zedte=closed_zedte,
+        closed_swing=list(closed_swing), closed_zedte=list(closed_zedte),
         status=executor.get_status() if executor else {},
         mode="PAPER" if config.TASTYTRADE_PAPER else "LIVE",
         now=datetime.now().strftime("%Y-%m-%d %H:%M ET"))
@@ -77,17 +78,17 @@ def run_backtest():
     if not session.get("authenticated"):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json()
-    strategy = data.get("strategy", "swing")
-    start_date = data.get("start_date", "2020-01-01")
-    end_date = data.get("end_date", "2024-12-31")
-    capital = float(data.get("capital", config.TOTAL_CAPITAL))
+    strategy  = data.get("strategy", "swing")
+    start     = data.get("start_date", "2020-01-01")
+    end       = data.get("end_date",   "2024-12-31")
+    capital   = float(data.get("capital", config.TOTAL_CAPITAL))
     try:
         if strategy == "swing":
             from src.backtest.options_engine import SwingBacktester
-            result = SwingBacktester(start_date, end_date, capital).run()
+            result = SwingBacktester(start, end, capital).run()
         elif strategy == "0dte":
             from src.backtest.options_engine import ZeroDTEBacktester
-            result = ZeroDTEBacktester(start_date, end_date, capital * config.ZEDTE_CAPITAL_PCT).run()
+            result = ZeroDTEBacktester(start, end, capital * config.ZEDTE_CAPITAL_PCT).run()
         else:
             return jsonify({"error": f"Unknown strategy: {strategy}"}), 400
         return jsonify(result.to_dict())
@@ -111,18 +112,16 @@ def api_status():
 
 @app.route("/health")
 def health():
-    """
-    Public endpoint. Gladys pre-deploy hook checks this.
-    Returns 503 if deploy_locked (0DTE positions open during market hours).
-    """
+    """Public endpoint. Gladys pre-deploy hook checks this.
+    Returns HTTP 503 when deploy_locked=true (0DTE open during market hours)."""
     db = get_conn()
-    deploy_locked = executor.deploy_locked if executor else False
+    locked = executor.deploy_locked if executor else False
     payload = {
         "status": "ok",
-        "deploy_locked": deploy_locked,
+        "deploy_locked": locked,
         "open_swing_positions": len(get_open_swing_positions(db)),
         "open_zedte_positions": len(get_open_zedte_positions(db)),
         "mode": "PAPER" if config.TASTYTRADE_PAPER else "LIVE",
         "timestamp": datetime.utcnow().isoformat(),
     }
-    return jsonify(payload), 503 if deploy_locked else 200
+    return jsonify(payload), 503 if locked else 200
