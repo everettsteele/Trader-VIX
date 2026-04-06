@@ -31,7 +31,7 @@
   .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
   .stat-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
   .stat-value { font-size: 22px; font-weight: 600; }
-  .stat-note { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .stat-note  { font-size: 11px; color: var(--muted); margin-top: 4px; }
   .green { color: var(--green); } .red { color: var(--red); } .amber { color: var(--amber); }
   .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px; }
   .card-title { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
@@ -47,7 +47,7 @@
   .tag-swing { background: rgba(53,153,106,0.12); color: var(--green); border: 1px solid rgba(53,153,106,0.25); }
   .tag-0dte  { background: rgba(200,241,53,0.10); color: var(--lime);  border: 1px solid rgba(200,241,53,0.25); }
   .empty { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
-  .deploy-lock { background: rgba(245,107,78,0.1); border: 1px solid rgba(245,107,78,0.3); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 13px; color: var(--red); }
+  .deploy-lock { background: rgba(245,107,78,0.1); border: 1px solid rgba(245,107,78,0.3); border-radius: 8px; padding: 10px 16px; margin-bottom: 20px; font-size: 13px; color: var(--red); display: flex; align-items: center; gap: 8px; }
 </style>
 </head>
 <body>
@@ -66,20 +66,20 @@
   <main class="main">
     <div class="page-header"><h1>Portfolio</h1><div class="sub">{{ now }}</div></div>
     {% if status.deploy_locked %}
-    <div class="deploy-lock">Deploy lock active — 0DTE position open. No Railway deploys until market close.</div>
+    <div class="deploy-lock">&#9888; Deploy lock active &mdash; 0DTE position open. No Railway deploys until market close.</div>
     {% endif %}
     <div class="stats">
       <div class="stat"><div class="stat-label">Open Swing</div><div class="stat-value">{{ open_swing|length }}</div><div class="stat-note">of {{ status.get('swing_max', 4) }} max</div></div>
       <div class="stat"><div class="stat-label">Open 0DTE</div><div class="stat-value {% if open_zedte|length > 0 %}amber{% endif %}">{{ open_zedte|length }}</div><div class="stat-note">{{ 'Active today' if open_zedte|length > 0 else 'None today' }}</div></div>
-      <div class="stat"><div class="stat-label">Strategies</div><div class="stat-value" style="font-size:14px; padding-top:4px;"><span class="{{ 'green' if status.get('swing_enabled') else 'red' }}">Swing</span> &nbsp; <span class="{{ 'green' if status.get('zedte_enabled') else 'red' }}">0DTE</span></div><div class="stat-note">{{ 'Paper' if mode == 'PAPER' else 'Live' }}</div></div>
-      <div class="stat"><div class="stat-label">Deploy</div><div class="stat-value {{ 'red' if status.deploy_locked else 'green' }}" style="font-size:16px; padding-top:6px;">{{ 'LOCKED' if status.deploy_locked else 'CLEAR' }}</div><div class="stat-note">Railway guard</div></div>
+      <div class="stat"><div class="stat-label">Strategies</div><div class="stat-value" style="font-size:14px;padding-top:4px;"><span class="{{ 'green' if status.get('swing_enabled') else 'red' }}">Swing</span> &nbsp; <span class="{{ 'green' if status.get('zedte_enabled') else 'red' }}">0DTE</span></div><div class="stat-note">{{ 'Paper' if mode == 'PAPER' else 'Live' }}</div></div>
+      <div class="stat"><div class="stat-label">Deploy Status</div><div class="stat-value {{ 'red' if status.deploy_locked else 'green' }}" style="font-size:16px;padding-top:6px;">{{ 'LOCKED' if status.deploy_locked else 'CLEAR' }}</div><div class="stat-note">Railway guard</div></div>
     </div>
-    <div class="chart-card"><div class="card-title">Portfolio Value — 90-Day History</div><canvas id="equityChart" height="80"></canvas></div>
+    <div class="chart-card"><div class="card-title">Portfolio Value &mdash; 90-Day History</div><canvas id="equityChart" height="80"></canvas></div>
     <div class="table-card">
       <div class="table-header"><span class="card-title" style="margin:0;">Open Swing Positions</span><span class="tag tag-swing">30-45 DTE</span></div>
       {% if open_swing %}
-      <table><thead><tr><th>Symbol</th><th>Spread</th><th>Expiration</th><th>DTE</th><th>Credit</th><th>Margin</th><th>VIX</th><th>Opened</th></tr></thead><tbody>
-      {% for pos in open_swing %}<tr>
+      <table><thead><tr><th>Symbol</th><th>Spread</th><th>Expiration</th><th>DTE</th><th>Credit</th><th>Margin</th><th>VIX Open</th><th>Opened</th></tr></thead>
+      <tbody>{% for pos in open_swing %}<tr>
         <td class="mono">{{ pos.symbol }}</td>
         <td class="mono">{{ pos.short_strike }}/{{ pos.long_strike }}P</td>
         <td class="mono">{{ pos.expiration }}</td>
@@ -88,15 +88,14 @@
         <td class="mono">${{ "%.0f"|format(pos.margin_held) }}</td>
         <td class="mono">{{ "%.1f"|format(pos.vix_at_open or 0) }}</td>
         <td class="mono">{{ pos.opened_date }}</td>
-      </tr>{% endfor %}
-      </tbody></table>
+      </tr>{% endfor %}</tbody></table>
       {% else %}<div class="empty">No open swing positions</div>{% endif %}
     </div>
     {% if open_zedte %}
     <div class="table-card">
       <div class="table-header"><span class="card-title" style="margin:0;">Open 0DTE Positions</span><span class="tag tag-0dte">0DTE</span></div>
-      <table><thead><tr><th>Symbol</th><th>Put Spread</th><th>Call Spread</th><th>Contracts</th><th>Credit</th><th>Margin</th><th>Opened</th></tr></thead><tbody>
-      {% for pos in open_zedte %}<tr>
+      <table><thead><tr><th>Symbol</th><th>Put Spread</th><th>Call Spread</th><th>Contracts</th><th>Credit</th><th>Margin</th><th>Opened</th></tr></thead>
+      <tbody>{% for pos in open_zedte %}<tr>
         <td class="mono">{{ pos.symbol }}</td>
         <td class="mono">{{ pos.put_long }}/{{ pos.put_short }}P</td>
         <td class="mono">{{ pos.call_short }}/{{ pos.call_long }}C</td>
@@ -104,43 +103,44 @@
         <td class="mono green">${{ "%.2f"|format(pos.credit_received) }}</td>
         <td class="mono">${{ "%.0f"|format(pos.margin_held) }}</td>
         <td class="mono">{{ pos.open_time[:16] if pos.open_time else pos.opened_date }}</td>
-      </tr>{% endfor %}
-      </tbody></table>
+      </tr>{% endfor %}</tbody></table>
     </div>
     {% endif %}
     <div class="table-card">
       <div class="table-header"><span class="card-title" style="margin:0;">Recent Closed Trades</span></div>
       {% if closed_swing or closed_zedte %}
-      <table><thead><tr><th>Type</th><th>Symbol</th><th>Spread</th><th>Opened</th><th>Closed</th><th>P&L</th><th>Reason</th></tr></thead><tbody>
-      {% for pos in closed_swing %}<tr>
-        <td><span class="tag tag-swing">Swing</span></td>
-        <td class="mono">{{ pos.symbol }}</td><td class="mono">{{ pos.short_strike }}/{{ pos.long_strike }}P</td>
-        <td class="mono">{{ pos.opened_date }}</td><td class="mono">{{ pos.close_date }}</td>
-        <td class="mono {{ 'green' if (pos.pnl_dollars or 0) >= 0 else 'red' }}">{{ '+' if (pos.pnl_dollars or 0) >= 0 else '' }}${{ "%.2f"|format(pos.pnl_dollars or 0) }}</td>
-        <td style="font-size:11px;color:var(--muted);">{{ pos.close_reason }}</td>
-      </tr>{% endfor %}
-      {% for pos in closed_zedte %}<tr>
-        <td><span class="tag tag-0dte">0DTE</span></td>
-        <td class="mono">{{ pos.symbol }}</td><td class="mono">{{ pos.put_short }}/{{ pos.call_short }}</td>
-        <td class="mono">{{ pos.opened_date }}</td><td class="mono">{{ pos.close_time[:10] if pos.close_time else '' }}</td>
-        <td class="mono {{ 'green' if (pos.pnl_dollars or 0) >= 0 else 'red' }}">{{ '+' if (pos.pnl_dollars or 0) >= 0 else '' }}${{ "%.2f"|format(pos.pnl_dollars or 0) }}</td>
-        <td style="font-size:11px;color:var(--muted);">{{ pos.close_reason }}</td>
-      </tr>{% endfor %}
+      <table><thead><tr><th>Type</th><th>Symbol</th><th>Spread</th><th>Opened</th><th>Closed</th><th>P&L</th><th>Reason</th></tr></thead>
+      <tbody>
+        {% for pos in closed_swing %}<tr>
+          <td><span class="tag tag-swing">Swing</span></td>
+          <td class="mono">{{ pos.symbol }}</td><td class="mono">{{ pos.short_strike }}/{{ pos.long_strike }}P</td>
+          <td class="mono">{{ pos.opened_date }}</td><td class="mono">{{ pos.close_date }}</td>
+          <td class="mono {{ 'green' if (pos.pnl_dollars or 0) >= 0 else 'red' }}">{{ '+' if (pos.pnl_dollars or 0) >= 0 else '' }}${{ "%.2f"|format(pos.pnl_dollars or 0) }}</td>
+          <td style="font-size:11px;color:var(--muted);">{{ pos.close_reason }}</td>
+        </tr>{% endfor %}
+        {% for pos in closed_zedte %}<tr>
+          <td><span class="tag tag-0dte">0DTE</span></td>
+          <td class="mono">{{ pos.symbol }}</td><td class="mono">{{ pos.put_short }}/{{ pos.call_short }}</td>
+          <td class="mono">{{ pos.opened_date }}</td><td class="mono">{{ pos.close_time[:10] if pos.close_time else '' }}</td>
+          <td class="mono {{ 'green' if (pos.pnl_dollars or 0) >= 0 else 'red' }}">{{ '+' if (pos.pnl_dollars or 0) >= 0 else '' }}${{ "%.2f"|format(pos.pnl_dollars or 0) }}</td>
+          <td style="font-size:11px;color:var(--muted);">{{ pos.close_reason }}</td>
+        </tr>{% endfor %}
       </tbody></table>
       {% else %}<div class="empty">No closed trades yet</div>{% endif %}
     </div>
   </main>
 </div>
 <script>
-const sd = {{ snapshots|safe }};
-if (sd.length > 0) {
+const snap = {{ snapshots|safe }};
+if (snap.length > 0) {
   new Chart(document.getElementById('equityChart').getContext('2d'), {
     type: 'line',
-    data: { labels: sd.map(d=>d.ts), datasets: [{ data: sd.map(d=>d.nlv), borderColor: '#35996A', backgroundColor: 'rgba(53,153,106,0.08)', borderWidth: 2, fill: true, tension: 0.3, pointRadius: 0 }] },
-    options: { responsive: true, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `$${c.parsed.y.toLocaleString()}` } } },
-      scales: { x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6966', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 8 } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#6b6966', font: { family: 'DM Mono', size: 10 }, callback: v => `$${v.toLocaleString()}` } } } }
+    data: { labels: snap.map(d=>d.ts), datasets: [{ data: snap.map(d=>d.nlv), borderColor:'#35996A', backgroundColor:'rgba(53,153,106,0.08)', borderWidth:2, fill:true, tension:0.3, pointRadius:0 }] },
+    options: { responsive:true, plugins:{legend:{display:false}}, scales:{
+      x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6966',font:{family:'DM Mono',size:10},maxTicksLimit:8}},
+      y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6966',font:{family:'DM Mono',size:10},callback:v=>`$${v.toLocaleString()}`}}
+    }}
   });
 }
 </script>
-</body>
-</html>
+</body></html>
