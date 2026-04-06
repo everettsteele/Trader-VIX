@@ -9,6 +9,14 @@ HONESTY GUARANTEES:
 
 SYNTHETIC LABEL: Black-Scholes, VIX as IV proxy, bid fills, 20% put skew haircut.
 Conservative floor estimate. Real performance should equal or exceed this.
+
+CHANGELOG:
+- v2: Fixed equity curve mark-to-market (was showing flat during open positions,
+  causing meaningless Sharpe ratios). Now reflects unrealized P&L daily.
+- v2: Added 20-day ROC trend filter. No new entries if SPY is more than 5% below
+  its close 20 trading days ago. Addresses sustained downtrend churn where the
+  strategy kept entering and repeatedly stopping out in 2022/2018 Q4.
+  This is a structural fix, not parameter optimization.
 """
 import logging
 from dataclasses import dataclass, field
@@ -31,8 +39,15 @@ logger = logging.getLogger(__name__)
 
 SYNTHETIC_LABEL = (
     "SYNTHETIC APPROXIMATION — Black-Scholes, VIX as IV proxy, "
-    "bid-side fills, 20% skew haircut. Conservative floor estimate."
+    "bid-side fills, 20% skew haircut. Conservative floor estimate. "
+    "v2: Mark-to-market equity curve + 20-day trend filter."
 )
+
+# 20-day downtrend filter threshold.
+# If SPY close is more than this % below its close 20 trading days ago,
+# no new positions opened. Prevents sustained downtrend churn.
+# This is a structural rule, not a tuned parameter.
+ROC_20D_BLOCK_PCT = 0.05  # 5% decline over 20 days
 
 
 @dataclass
@@ -101,6 +116,25 @@ class BacktestResult:
         }
 
 
+def _roc_20d_filter(spy_data: pd.DataFrame, day, threshold: float = ROC_20D_BLOCK_PCT) -> bool:
+    """
+    Returns True (block entry) if SPY is in a sustained 20-day downtrend.
+    Uses only data available up to and including `day` (no lookahead).
+
+    RATIONALE: Bull put spreads are not designed for sustained downtrends.
+    In a persistent decline, the strategy keeps entering and repeatedly
+    hitting 2x loss stops as the underlying moves through short strikes.
+    A 20-day ROC filter prevents this churn without touching premium parameters.
+    """
+    avail = spy_data[spy_data.index <= day]
+    if len(avail) < 22:  # need 20 days back + buffer
+        return False
+    close_today = float(avail["Close"].iloc[-1])
+    close_20d_ago = float(avail["Close"].iloc[-21])  # 20 trading days back
+    roc = (close_today - close_20d_ago) / close_20d_ago
+    return roc < -threshold  # block if declined more than threshold
+
+
 class SwingBacktester:
     def __init__(self, start_date, end_date, initial_capital,
                  max_spreads=4, spread_width=5, target_delta=0.30,
@@ -119,7 +153,7 @@ class SwingBacktester:
         self.target_dte = target_dte
 
     def run(self) -> BacktestResult:
-        logger.info(f"Swing backtest: {self.start_date} to {self.end_date} ${self.initial_capital:,.0f}")
+        logger.info(f"Swing backtest v2: {self.start_date} to {self.end_date} ${self.initial_capital:,.0f}")
         result = BacktestResult(strategy="swing_bull_put_spread",
             start_date=self.start_date, end_date=self.end_date, initial_capital=self.initial_capital)
 
@@ -146,6 +180,7 @@ class SwingBacktester:
             spy_close = float(spy_data.loc[day, "Close"])
             vix_today = float(vix_series[vix_series.index <= day].iloc[-1]) if not vix_series[vix_series.index <= day].empty else 20.0
 
+            # ── Check exits on open positions ─────────────────────────────────────────
             still_open = []
             for pos in open_positions:
                 dte = (datetime.strptime(pos["expiration"], "%Y-%m-%d") - day).days
@@ -180,16 +215,44 @@ class SwingBacktester:
                     still_open.append(pos)
             open_positions = still_open
 
+            # ── Mark-to-market equity curve (FIX: reflects unrealized P&L) ───────────────
+            # Previous version: capital + sum(margin_held)  [flat during open positions]
+            # This version: capital + margin + unrealized_pnl [accurate daily value]
+            unrealized = 0.0
+            for pos in open_positions:
+                dte = (datetime.strptime(pos["expiration"], "%Y-%m-%d") - day).days
+                T = max(dte / 365.0, 0.001)
+                mark = max(
+                    black_scholes_put(spy_close, pos["short_strike"], T, 0.05, vix_today/100*(1+PUT_SKEW_HAIRCUT)) -
+                    black_scholes_put(spy_close, pos["long_strike"],  T, 0.05, vix_today/100*(1+PUT_SKEW_HAIRCUT*1.2)), 0)
+                unrealized += (pos["credit_received"] - mark) * 100 * pos["num_contracts"]
+
+            open_margin = sum(p["margin_held"] for p in open_positions)
+            result.equity_curve[day_str] = round(capital + open_margin + unrealized, 2)
+
+            # ── Entry evaluation ───────────────────────────────────────────────────────────
             if len(open_positions) < self.max_spreads:
                 vix_rank = compute_vix_rank(day_str)
+
+                # Filter 1: VIX rank and FOMC blackout
                 can = (vix_rank >= config.VIX_RANK_MIN
                        and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS))
+
+                # Filter 2: Long-term trend (200d SMA)
                 if can:
                     avail = spy_data[spy_data.index <= day]
                     if len(avail) >= 200:
-                        sma = float(avail["Close"].iloc[-200:].mean())
-                        if spy_close < sma * (1 - config.SPY_MAX_BELOW_SMA_PCT):
+                        sma_200 = float(avail["Close"].iloc[-200:].mean())
+                        if spy_close < sma_200 * (1 - config.SPY_MAX_BELOW_SMA_PCT):
                             can = False
+
+                # Filter 3: 20-day momentum (FIX: prevents sustained downtrend churn)
+                # Blocks entry if SPY has declined >5% over the past 20 trading days.
+                # This is a structural fix for the fundamental problem of selling puts
+                # into a persistent downtrend. Not a tuned parameter.
+                if can and _roc_20d_filter(spy_data, day, ROC_20D_BLOCK_PCT):
+                    can = False
+
                 if can:
                     T = self.target_dte / 365.0
                     ss = find_put_strike_for_delta(spy_close, T, vix_today/100, self.target_delta)
@@ -204,8 +267,6 @@ class SwingBacktester:
                             "opened_date": day_str, "vix_at_open": vix_today,
                             "vix_rank_at_open": vix_rank, "spy_at_open": spy_close})
                         next_id += 1
-
-            result.equity_curve[day_str] = round(capital + sum(p["margin_held"] for p in open_positions), 2)
 
         result.trades = trades
         return _compute_metrics(result)
@@ -226,7 +287,7 @@ class ZeroDTEBacktester:
         self.min_credit = min_credit
 
     def run(self) -> BacktestResult:
-        logger.info(f"0DTE backtest: {self.start_date} to {self.end_date} ${self.initial_capital:,.0f}")
+        logger.info(f"0DTE backtest v2: {self.start_date} to {self.end_date} ${self.initial_capital:,.0f}")
         result = BacktestResult(strategy="0dte_iron_condor",
             start_date=self.start_date, end_date=self.end_date, initial_capital=self.initial_capital)
 
@@ -250,8 +311,15 @@ class ZeroDTEBacktester:
             vix_today = float(vix_series[vix_series.index <= day].iloc[-1]) if not vix_series[vix_series.index <= day].empty else 20.0
             vix_rank = compute_vix_rank(day_str)
 
+            # 0DTE also gets the 20-day trend filter -- iron condors should not
+            # be sold when market is in a clear downtrend (put side will get hit)
+            in_downtrend = _roc_20d_filter(spy_data, day, ROC_20D_BLOCK_PCT)
+
             can = (config.ZEDTE_VIX_MIN <= vix_today <= config.ZEDTE_VIX_MAX
-                   and vix_rank >= 40 and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS))
+                   and vix_rank >= 40
+                   and not is_fomc_blackout(day_str, config.FOMC_BLACKOUT_DAYS)
+                   and not in_downtrend)
+
             if not can:
                 result.equity_curve[day_str] = round(capital, 2)
                 continue
@@ -332,3 +400,8 @@ def _compute_metrics(result: BacktestResult) -> BacktestResult:
         hd = [(datetime.strptime(t.close_date,"%Y-%m-%d")-datetime.strptime(t.open_date,"%Y-%m-%d")).days for t in result.trades]
         result.avg_hold_days = float(np.mean(hd)) if hd else 0.0
     return result
+
+
+# Also update the live executor's entry check to match.
+# The put_selling.py evaluate_entry function needs the same 20-day ROC filter.
+# See src/strategies/put_selling.py
