@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backtest — Trader-VIX</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e; --border: rgba(255,255,255,0.07); --text: #f0ede8; --muted: #6b6966; --green: #35996A; --lime: #c8f135; --red: #f56b4e; --amber: #f5a623; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); }
+  .layout { display: grid; grid-template-columns: 200px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--border); padding: 24px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .sidebar-logo { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--green); letter-spacing: 0.1em; text-transform: uppercase; padding: 0 8px; margin-bottom: 20px; }
+  .sidebar a { display: block; padding: 8px 10px; border-radius: 6px; color: var(--muted); text-decoration: none; font-size: 13px; }
+  .sidebar a:hover, .sidebar a.active { background: var(--surface2); color: var(--text); }
+  .sidebar-footer { margin-top: auto; }
+  .main { padding: 32px; }
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 22px; font-weight: 500; }
+  .page-header .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .controls { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(5, 1fr) auto; gap: 16px; align-items: end; }
+  .field label { display: block; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .field select, .field input { width: 100%; background: var(--surface2); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 8px 12px; color: var(--text); font-size: 13px; font-family: 'DM Mono', monospace; outline: none; }
+  .field select:focus, .field input:focus { border-color: var(--green); }
+  .run-btn { background: var(--green); color: white; border: none; border-radius: 6px; padding: 9px 20px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .run-btn:hover { background: #2e8059; } .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .warning { background: rgba(245,166,35,0.08); border: 1px solid rgba(245,166,35,0.25); border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; font-size: 12px; color: var(--amber); line-height: 1.6; }
+  .results { display: none; }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .metric-label { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+  .metric-value { font-size: 20px; font-weight: 600; }
+  .metric-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .green { color: var(--green); } .red { color: var(--red); } .amber { color: var(--amber); }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+  .card-title { font-size: 11px; font-family: 'DM Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; }
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 24px; }
+  .table-header { padding: 14px 18px; border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; }
+  th { padding: 10px 16px; text-align: left; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--border); background: var(--surface2); }
+  td { padding: 10px 16px; font-size: 12px; border-bottom: 1px solid var(--border); font-family: 'DM Mono', monospace; }
+  tr:last-child td { border-bottom: none; }
+  .loading { display: none; text-align: center; padding: 40px; color: var(--muted); font-family: 'DM Mono', monospace; font-size: 13px; }
+  .error-msg { display: none; background: rgba(245,107,78,0.1); border: 1px solid rgba(245,107,78,0.3); border-radius: 8px; padding: 14px; color: var(--red); margin-bottom: 20px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-logo">Trader-VIX</div>
+    <a href="/">Portfolio</a>
+    <a href="/backtest" class="active">Backtest</a>
+    <div class="sidebar-footer"><a href="/logout" style="font-size:12px;color:var(--muted);padding:8px 10px;display:block;">Sign out</a></div>
+  </aside>
+  <main class="main">
+    <div class="page-header"><h1>Backtest Runner</h1><div class="sub">Synthetic walk-forward — no lookahead bias</div></div>
+    <div class="warning"><strong>Synthetic approximation only.</strong> Black-Scholes with VIX as IV proxy, bid-side fills, 20% put skew haircut. IV rank uses trailing 252-day window only. Conservative floor estimate. Not a guarantee of future performance.</div>
+    <div class="controls">
+      <div class="field"><label>Strategy</label><select id="strategy"><option value="swing">Swing (30-45 DTE)</option><option value="0dte">0DTE Iron Condors</option></select></div>
+      <div class="field"><label>Start Date</label><input type="date" id="start_date" value="2020-01-01"></div>
+      <div class="field"><label>End Date</label><input type="date" id="end_date" value="2024-12-31"></div>
+      <div class="field"><label>Capital ($)</label><input type="number" id="capital" value="20000" step="1000"></div>
+      <div class="field"></div>
+      <button class="run-btn" id="runBtn" onclick="runBacktest()">Run</button>
+    </div>
+    <div class="loading" id="loading">Running backtest — fetching VIX and SPY data...</div>
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="results" id="results">
+      <div class="metrics" id="metricsGrid"></div>
+      <div class="chart-card"><div class="card-title">Equity Curve vs Buy-and-Hold SPY</div><canvas id="equityChart" height="80"></canvas></div>
+      <div class="table-card"><div class="table-header"><span class="card-title" style="margin:0;" id="tradeTableTitle">Trade Log</span></div><div style="overflow-x:auto;"><table><thead id="tradeHead"></thead><tbody id="tradeBody"></tbody></table></div></div>
+    </div>
+  </main>
+</div>
+<script>
+let chart = null;
+async function runBacktest() {
+  const btn = document.getElementById('runBtn'), loading = document.getElementById('loading'),
+        results = document.getElementById('results'), err = document.getElementById('errorMsg');
+  btn.disabled = true; loading.style.display = 'block'; results.style.display = 'none'; err.style.display = 'none';
+  try {
+    const resp = await fetch('/api/backtest/run', { method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ strategy: document.getElementById('strategy').value, start_date: document.getElementById('start_date').value, end_date: document.getElementById('end_date').value, capital: parseFloat(document.getElementById('capital').value) }) });
+    if (!resp.ok) { const e = await resp.json(); throw new Error(e.error || 'Backtest failed'); }
+    renderResults(await resp.json());
+  } catch(e) { err.textContent = e.message; err.style.display = 'block'; }
+  finally { btn.disabled = false; loading.style.display = 'none'; }
+}
+function fmt(n, pct=false) { return pct ? (n>=0?'+':'')+n.toFixed(1)+'%' : '$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); }
+function cc(n) { return n>=0?'green':'red'; }
+function renderResults(data) {
+  const m = data.metrics;
+  document.getElementById('metricsGrid').innerHTML = [
+    {label:'Total Return',value:fmt(m.total_return_pct,true),cls:cc(m.total_return_pct),sub:`vs ${fmt(m.benchmark_return_pct,true)} buy-and-hold`},
+    {label:'Annualized',value:fmt(m.annualized_return_pct,true),cls:cc(m.annualized_return_pct),sub:`Sharpe ${m.sharpe_ratio.toFixed(2)}`},
+    {label:'Max Drawdown',value:fmt(m.max_drawdown_pct,true),cls:m.max_drawdown_pct<-20?'red':'amber',sub:'Peak to trough'},
+    {label:'Win Rate',value:m.win_rate_pct.toFixed(0)+'%',cls:m.win_rate_pct>=60?'green':'amber',sub:`${m.winning_trades}/${m.total_trades} trades`},
+    {label:'Alpha',value:fmt(m.alpha_pct,true),cls:cc(m.alpha_pct),sub:'vs SPY'},
+    {label:'Profit Factor',value:m.profit_factor===1e9?'\u221e':m.profit_factor.toFixed(2),cls:m.profit_factor>=1.5?'green':'amber',sub:'Gross win/loss'},
+    {label:'Avg Hold',value:m.avg_hold_days.toFixed(0)+'d',cls:'',sub:'Per trade'},
+    {label:'Total Trades',value:m.total_trades,cls:'',sub:data.start_date+' to '+data.end_date},
+  ].map(x=>`<div class="metric"><div class="metric-label">${x.label}</div><div class="metric-value ${x.cls}">${x.value}</div><div class="metric-sub">${x.sub}</div></div>`).join('');
+  if(chart) chart.destroy();
+  chart = new Chart(document.getElementById('equityChart').getContext('2d'), {
+    type: 'line', data: { labels: Object.keys(data.equity_curve),
+      datasets: [
+        {label:'Strategy',data:Object.values(data.equity_curve),borderColor:'#35996A',backgroundColor:'rgba(53,153,106,0.06)',borderWidth:2,fill:true,tension:0.2,pointRadius:0},
+        {label:'Buy & Hold SPY',data:Object.values(data.benchmark_curve),borderColor:'#6b6966',borderWidth:1.5,borderDash:[5,3],fill:false,tension:0.2,pointRadius:0}
+      ]},
+    options:{responsive:true,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#f0ede8',font:{family:'DM Mono',size:11},boxWidth:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: $${c.parsed.y.toLocaleString()}`}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6966',font:{family:'DM Mono',size:10},maxTicksLimit:10}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6966',font:{family:'DM Mono',size:10},callback:v=>`$${v.toLocaleString()}`}}}}
+  });
+  const is0dte = data.strategy==='0dte_iron_condor';
+  document.getElementById('tradeTableTitle').textContent = `Trade Log (${data.trades.length} trades)`;
+  document.getElementById('tradeHead').innerHTML = is0dte
+    ? '<tr><th>Date</th><th>Puts</th><th>Calls</th><th>Credit</th><th>P&L</th><th>Reason</th><th>VIX</th></tr>'
+    : '<tr><th>Opened</th><th>Closed</th><th>Short</th><th>Long</th><th>DTE</th><th>Credit</th><th>P&L</th><th>Reason</th></tr>';
+  document.getElementById('tradeBody').innerHTML = [...data.trades].slice(-50).reverse().map(t => {
+    const pc = t.pnl_dollars>=0?'green':'red', pf = (t.pnl_dollars>=0?'+':'')+'$'+Math.abs(t.pnl_dollars).toFixed(0);
+    return is0dte
+      ? `<tr><td>${t.open_date}</td><td>${t.long_strike}/${t.short_strike}P</td><td>${t.call_short||''}/${t.call_long||''}C</td><td class="green">$${t.credit_received.toFixed(2)}</td><td class="${pc}">${pf}</td><td style="color:var(--muted);font-size:11px;">${t.close_reason}</td><td>${t.vix_at_open.toFixed(1)}</td></tr>`
+      : `<tr><td>${t.open_date}</td><td>${t.close_date}</td><td>${t.short_strike}</td><td>${t.long_strike}</td><td>${t.dte_at_open}</td><td class="green">$${t.credit_received.toFixed(2)}</td><td class="${pc}">${pf}</td><td style="color:var(--muted);font-size:11px;">${t.close_reason}</td></tr>`;
+  }).join('');
+  document.getElementById('results').style.display = 'block';
+}
+</script>
+</body>
+</html>
