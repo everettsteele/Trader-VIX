@@ -78,10 +78,10 @@ def run_backtest():
     if not session.get("authenticated"):
         return jsonify({"error": "unauthorized"}), 401
     data = request.get_json()
-    strategy  = data.get("strategy", "swing")
-    start     = data.get("start_date", "2020-01-01")
-    end       = data.get("end_date",   "2024-12-31")
-    capital   = float(data.get("capital", config.TOTAL_CAPITAL))
+    strategy = data.get("strategy", "swing")
+    start    = data.get("start_date", "2020-01-01")
+    end      = data.get("end_date",   "2024-12-31")
+    capital  = float(data.get("capital", config.TOTAL_CAPITAL))
     try:
         if strategy == "swing":
             from src.backtest.options_engine import SwingBacktester
@@ -95,6 +95,24 @@ def run_backtest():
     except Exception as e:
         logger.error(f"Backtest error: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/backtest/batch", methods=["POST"])
+def batch_backtest():
+    """Run multiple backtests across predefined regime periods."""
+    if not session.get("authenticated"):
+        return jsonify({"error": "unauthorized"}), 401
+    from src.dashboard.batch import batch_backtest_route
+    return batch_backtest_route()
+
+
+@app.route("/api/backtest/regimes")
+def get_regimes():
+    """Return available regime definitions for the frontend."""
+    if not session.get("authenticated"):
+        return jsonify({"error": "unauthorized"}), 401
+    from src.dashboard.batch import REGIMES
+    return jsonify(REGIMES)
 
 
 @app.route("/api/positions")

@@ -7,43 +7,78 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --bg:#0d0d0d;--surface:#161616;--surface2:#1e1e1e;--border:rgba(255,255,255,0.07);--text:#f0ede8;--muted:#6b6966;--green:#35996A;--lime:#c8f135;--red:#f56b4e;--amber:#f5a623; }
-  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); }
-  .layout { display:grid; grid-template-columns:200px 1fr; min-height:100vh; }
-  .sidebar { background:var(--surface); border-right:1px solid var(--border); padding:24px 16px; display:flex; flex-direction:column; gap:4px; }
-  .sidebar-logo { font-family:'DM Mono',monospace; font-size:11px; color:var(--green); letter-spacing:0.1em; text-transform:uppercase; padding:0 8px; margin-bottom:20px; }
-  .sidebar a { display:block; padding:8px 10px; border-radius:6px; color:var(--muted); text-decoration:none; font-size:13px; }
-  .sidebar a:hover,.sidebar a.active { background:var(--surface2); color:var(--text); }
-  .sidebar-footer { margin-top:auto; }
-  .main { padding:32px; }
-  .page-header { margin-bottom:28px; }
-  .page-header h1 { font-size:22px; font-weight:500; }
-  .page-header .sub { font-size:13px; color:var(--muted); margin-top:4px; }
-  .controls { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:24px; margin-bottom:24px; display:grid; grid-template-columns:repeat(5,1fr) auto; gap:16px; align-items:end; }
-  .field label { display:block; font-size:11px; font-family:'DM Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px; }
-  .field select,.field input { width:100%; background:var(--surface2); border:1px solid rgba(255,255,255,0.1); border-radius:6px; padding:8px 12px; color:var(--text); font-size:13px; font-family:'DM Mono',monospace; outline:none; }
-  .field select:focus,.field input:focus { border-color:var(--green); }
-  .run-btn { background:var(--green); color:white; border:none; border-radius:6px; padding:9px 20px; font-size:13px; font-weight:500; cursor:pointer; white-space:nowrap; }
-  .run-btn:hover { background:#2e8059; } .run-btn:disabled { opacity:0.5; cursor:not-allowed; }
-  .warning { background:rgba(245,166,35,0.08); border:1px solid rgba(245,166,35,0.25); border-radius:8px; padding:12px 16px; margin-bottom:24px; font-size:12px; color:var(--amber); line-height:1.6; }
-  .results { display:none; }
-  .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
-  .metric { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; }
-  .metric-label { font-size:10px; color:var(--muted); font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
-  .metric-value { font-size:20px; font-weight:600; }
-  .metric-sub { font-size:11px; color:var(--muted); margin-top:4px; }
-  .green{color:var(--green);} .red{color:var(--red);} .amber{color:var(--amber);}
-  .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:24px; }
-  .card-title { font-size:11px; font-family:'DM Mono',monospace; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:16px; }
-  .table-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin-bottom:24px; }
-  .table-header { padding:14px 18px; border-bottom:1px solid var(--border); }
-  table { width:100%; border-collapse:collapse; }
-  th { padding:10px 16px; text-align:left; font-family:'DM Mono',monospace; font-size:10px; font-weight:500; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; border-bottom:1px solid var(--border); background:var(--surface2); }
-  td { padding:10px 16px; font-size:12px; border-bottom:1px solid var(--border); font-family:'DM Mono',monospace; }
-  tr:last-child td { border-bottom:none; }
-  .loading { display:none; text-align:center; padding:40px; color:var(--muted); font-family:'DM Mono',monospace; font-size:13px; }
-  .error-msg { display:none; background:rgba(245,107,78,0.1); border:1px solid rgba(245,107,78,0.3); border-radius:8px; padding:14px; color:var(--red); margin-bottom:20px; font-size:13px; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{--bg:#0d0d0d;--surface:#161616;--surface2:#1e1e1e;--border:rgba(255,255,255,0.07);--text:#f0ede8;--muted:#6b6966;--green:#35996A;--lime:#c8f135;--red:#f56b4e;--amber:#f5a623;}
+  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);}
+  .layout{display:grid;grid-template-columns:200px 1fr;min-height:100vh;}
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);padding:24px 16px;display:flex;flex-direction:column;gap:4px;}
+  .sidebar-logo{font-family:'DM Mono',monospace;font-size:11px;color:var(--green);letter-spacing:0.1em;text-transform:uppercase;padding:0 8px;margin-bottom:20px;}
+  .sidebar a{display:block;padding:8px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-size:13px;}
+  .sidebar a:hover,.sidebar a.active{background:var(--surface2);color:var(--text);}
+  .sidebar-footer{margin-top:auto;}
+  .main{padding:32px;max-width:1200px;}
+  h1{font-size:22px;font-weight:500;margin-bottom:4px;}
+  .sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+  /* Tabs */
+  .tabs{display:flex;gap:2px;margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px;width:fit-content;}
+  .tab{padding:7px 18px;border-radius:5px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);border:none;background:none;transition:all 0.15s;}
+  .tab.active{background:var(--surface2);color:var(--text);}
+  /* Warning */
+  .warning{background:rgba(245,166,35,0.06);border:1px solid rgba(245,166,35,0.2);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:11px;color:var(--amber);line-height:1.6;}
+  /* Single run panel */
+  .panel{display:none;}
+  .panel.active{display:block;}
+  .controls{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:20px;display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;}
+  .field label{display:block;font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px;}
+  .field select,.field input{background:var(--surface2);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:7px 10px;color:var(--text);font-size:13px;font-family:'DM Mono',monospace;outline:none;min-width:140px;}
+  .field select:focus,.field input:focus{border-color:var(--green);}
+  /* Preset buttons */
+  .presets{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px;margin-bottom:20px;}
+  .presets-label{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;}
+  .preset-grid{display:flex;gap:8px;flex-wrap:wrap;}
+  .preset-btn{padding:5px 12px;border-radius:5px;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;color:var(--muted);border:1px solid var(--border);background:var(--surface2);transition:all 0.12s;white-space:nowrap;}
+  .preset-btn:hover{border-color:var(--green);color:var(--text);}
+  /* Run buttons */
+  .btn{padding:8px 18px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;white-space:nowrap;}
+  .btn-green{background:var(--green);color:white;}
+  .btn-green:hover{background:#2e8059;}
+  .btn-green:disabled{opacity:0.4;cursor:not-allowed;}
+  .btn-outline{background:transparent;color:var(--muted);border:1px solid var(--border);}
+  .btn-outline:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
+  /* Metrics */
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+  .metric{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+  .metric-label{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+  .metric-value{font-size:19px;font-weight:600;}
+  .metric-sub{font-size:11px;color:var(--muted);margin-top:3px;}
+  .green{color:var(--green);}.red{color:var(--red);}.amber{color:var(--amber);}
+  /* Chart */
+  .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px;margin-bottom:20px;}
+  .card-title{font-size:10px;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;}
+  /* Tables */
+  .table-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;}
+  .table-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  table{width:100%;border-collapse:collapse;}
+  th{padding:9px 14px;text-align:left;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;border-bottom:1px solid var(--border);background:var(--surface2);}
+  td{padding:9px 14px;font-size:12px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;}
+  tr:last-child td{border-bottom:none;}
+  tr.highlight td{background:rgba(53,153,106,0.05);}
+  /* Batch regime table */
+  .regime-row td{cursor:pointer;}
+  .regime-row:hover td{background:rgba(255,255,255,0.02);}
+  .regime-row.selected td{background:rgba(53,153,106,0.08);}
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-family:'DM Mono',monospace;font-weight:500;}
+  .badge-favorable{background:rgba(53,153,106,0.15);color:var(--green);border:1px solid rgba(53,153,106,0.3);}
+  .badge-unfavorable{background:rgba(245,107,78,0.1);color:var(--red);border:1px solid rgba(245,107,78,0.25);}
+  .badge-neutral{background:rgba(245,166,35,0.1);color:var(--amber);border:1px solid rgba(245,166,35,0.25);}
+  /* Loading / state */
+  .loading-bar{height:2px;background:var(--surface2);border-radius:2px;margin-bottom:20px;overflow:hidden;display:none;}
+  .loading-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.3s;}
+  .status-line{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;margin-bottom:14px;display:none;}
+  .error-msg{display:none;background:rgba(245,107,78,0.08);border:1px solid rgba(245,107,78,0.25);border-radius:8px;padding:12px;color:var(--red);margin-bottom:16px;font-size:12px;}
+  /* JSON export */
+  .export-btn{font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;background:transparent;color:var(--muted);border:1px solid var(--border);font-family:'DM Mono',monospace;}
+  .export-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
 </style>
 </head>
 <body>
@@ -55,84 +90,319 @@
     <div class="sidebar-footer"><a href="/logout" style="font-size:12px;color:var(--muted);padding:8px 10px;display:block;">Sign out</a></div>
   </aside>
   <main class="main">
-    <div class="page-header"><h1>Backtest Runner</h1><div class="sub">Synthetic walk-forward &mdash; no lookahead bias</div></div>
-    <div class="warning"><strong>Synthetic approximation only.</strong> Black-Scholes + VIX as IV proxy, bid-side fills, 20% put skew haircut. IV rank from trailing 252-day window only. Conservative floor estimate &mdash; do not treat as a guarantee of future performance.</div>
-    <div class="controls">
-      <div class="field"><label>Strategy</label><select id="strategy"><option value="swing">Swing (30-45 DTE)</option><option value="0dte">0DTE Iron Condors</option></select></div>
-      <div class="field"><label>Start Date</label><input type="date" id="start_date" value="2020-01-01"></div>
-      <div class="field"><label>End Date</label><input type="date" id="end_date" value="2024-12-31"></div>
-      <div class="field"><label>Capital ($)</label><input type="number" id="capital" value="20000" step="1000"></div>
-      <div class="field"></div>
-      <button class="run-btn" id="runBtn" onclick="runBacktest()">Run</button>
+    <h1>Backtest Runner</h1>
+    <div class="sub">Synthetic walk-forward &mdash; no lookahead bias</div>
+
+    <div class="warning"><strong>Synthetic approximation only.</strong> Black-Scholes + VIX as IV proxy, bid-side fills, 20% put skew haircut. IV rank from trailing 252-day window only. Conservative floor estimate. Do not optimize parameters based on results from specific periods.</div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('single')">Single Run</button>
+      <button class="tab" onclick="switchTab('regime')">Regime Testing</button>
     </div>
-    <div class="loading" id="loading">Running backtest &mdash; fetching VIX and SPY data...</div>
-    <div class="error-msg" id="errorMsg"></div>
-    <div class="results" id="results">
-      <div class="metrics" id="metricsGrid"></div>
-      <div class="chart-card"><div class="card-title">Equity Curve vs Buy-and-Hold SPY</div><canvas id="equityChart" height="80"></canvas></div>
-      <div class="table-card">
-        <div class="table-header"><span class="card-title" style="margin:0;" id="tradeTableTitle">Trade Log</span></div>
-        <div style="overflow-x:auto;"><table><thead id="tradeHead"></thead><tbody id="tradeBody"></tbody></table></div>
+
+    <!-- ── SINGLE RUN PANEL ── -->
+    <div class="panel active" id="panel-single">
+      <div class="presets">
+        <div class="presets-label">Quick Presets</div>
+        <div class="preset-grid">
+          <button class="preset-btn" onclick="setPreset('2018-10-01','2019-06-30')">2018 Q4 Crash</button>
+          <button class="preset-btn" onclick="setPreset('2020-01-01','2020-12-31')">2020 COVID</button>
+          <button class="preset-btn" onclick="setPreset('2022-01-01','2022-12-31')">2022 Rate Hikes</button>
+          <button class="preset-btn" onclick="setPreset('2023-01-01','2023-12-31')">2023 Recovery</button>
+          <button class="preset-btn" onclick="setPreset('2025-01-01','2025-12-31')">2025 Bull Run</button>
+          <button class="preset-btn" onclick="setPreset('2026-01-01','2026-04-06')">2026 YTD</button>
+          <button class="preset-btn" onclick="setPreset('2018-01-01','2026-04-06')">Full Cycle</button>
+        </div>
+      </div>
+      <div class="controls">
+        <div class="field"><label>Strategy</label><select id="strategy"><option value="swing">Swing (30-45 DTE)</option><option value="0dte">0DTE Iron Condors</option></select></div>
+        <div class="field"><label>Start Date</label><input type="date" id="start_date" value="2022-01-01"></div>
+        <div class="field"><label>End Date</label><input type="date" id="end_date" value="2022-12-31"></div>
+        <div class="field"><label>Capital ($)</label><input type="number" id="capital" value="20000" step="1000" style="min-width:110px;"></div>
+        <button class="btn btn-green" id="runBtn" onclick="runSingle()">Run</button>
+        <button class="btn btn-outline" onclick="exportSingle()" id="exportSingleBtn" style="display:none;">Export JSON</button>
+      </div>
+      <div class="loading-bar" id="singleBar"><div class="loading-bar-fill" id="singleBarFill" style="width:0%"></div></div>
+      <div class="error-msg" id="singleError"></div>
+      <div id="singleResults" style="display:none;">
+        <div class="metrics" id="metricsGrid"></div>
+        <div class="chart-card"><div class="card-title">Equity Curve vs Buy-and-Hold SPY</div><canvas id="equityChart" height="75"></canvas></div>
+        <div class="table-card">
+          <div class="table-header"><span class="card-title" style="margin:0;" id="tradeTitle">Trade Log</span></div>
+          <div style="overflow-x:auto;"><table><thead id="tradeHead"></thead><tbody id="tradeBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REGIME TESTING PANEL ── -->
+    <div class="panel" id="panel-regime">
+      <div class="controls">
+        <div class="field"><label>Strategy</label><select id="batchStrategy"><option value="swing">Swing (30-45 DTE)</option><option value="0dte">0DTE Iron Condors</option></select></div>
+        <div class="field"><label>Capital ($)</label><input type="number" id="batchCapital" value="20000" step="1000" style="min-width:110px;"></div>
+        <button class="btn btn-green" id="batchRunBtn" onclick="runAllRegimes()">Run All Regimes</button>
+        <button class="btn btn-outline" onclick="exportBatch()" id="exportBatchBtn" style="display:none;">Export JSON</button>
+      </div>
+      <div class="loading-bar" id="batchBar"><div class="loading-bar-fill" id="batchBarFill" style="width:0%"></div></div>
+      <div class="status-line" id="batchStatus"></div>
+      <div class="error-msg" id="batchError"></div>
+
+      <!-- Regime summary table -->
+      <div class="table-card" id="regimeTable" style="display:none;">
+        <div class="table-header">
+          <span class="card-title" style="margin:0;">Regime Sweep Results</span>
+          <span style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;">Click row to view equity curve</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Period</th><th>Regime</th>
+              <th style="text-align:right;">Return</th>
+              <th style="text-align:right;">SPY</th>
+              <th style="text-align:right;">Alpha</th>
+              <th style="text-align:right;">Sharpe</th>
+              <th style="text-align:right;">MaxDD</th>
+              <th style="text-align:right;">Win%</th>
+              <th style="text-align:right;">Trades</th>
+            </tr>
+          </thead>
+          <tbody id="regimeBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Selected regime detail chart -->
+      <div id="regimeDetail" style="display:none;">
+        <div class="chart-card"><div class="card-title" id="regimeDetailTitle">Equity Curve</div><canvas id="regimeChart" height="75"></canvas></div>
+      </div>
+
+      <!-- Interpretation guide -->
+      <div id="interpretGuide" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 20px;margin-bottom:20px;">
+        <div class="card-title" style="margin-bottom:12px;">Interpretation Guide</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+          <div><span style="color:var(--green);">&#9679;</span> <strong style="color:var(--text);">Favorable regimes</strong> (high VIX, correction, range-bound): positive alpha expected. 2018 Q4, 2020, 2022, 2026 YTD.</div>
+          <div><span style="color:var(--amber);">&#9679;</span> <strong style="color:var(--text);">Unfavorable regimes</strong> (low VIX bull runs): underperformance vs SPY is expected and correct. 2019, 2021, 2023–2025.</div>
+          <div><span style="color:var(--red);">&#9679;</span> <strong style="color:var(--text);">Red flag</strong>: strategy losing money in favorable regimes. That signals a real problem worth investigating.</div>
+          <div style="margin-top:8px;">The full cycle return is the number that matters for long-term capital allocation. <strong style="color:var(--text);">Do not adjust parameters to improve results in any specific period.</strong></div>
+        </div>
       </div>
     </div>
   </main>
 </div>
+
 <script>
-let chart=null;
-async function runBacktest(){
-  const btn=document.getElementById('runBtn'),loading=document.getElementById('loading'),results=document.getElementById('results'),err=document.getElementById('errorMsg');
-  btn.disabled=true;loading.style.display='block';results.style.display='none';err.style.display='none';
-  try{
-    const r=await fetch('/api/backtest/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      strategy:document.getElementById('strategy').value,
-      start_date:document.getElementById('start_date').value,
-      end_date:document.getElementById('end_date').value,
-      capital:parseFloat(document.getElementById('capital').value)
-    })});
-    if(!r.ok){const e=await r.json();throw new Error(e.error||'Backtest failed');}
-    renderResults(await r.json());
-  }catch(e){err.textContent=e.message;err.style.display='block';}
-  finally{btn.disabled=false;loading.style.display='none';}
+let singleChart = null;
+let regimeChart = null;
+let singleResult = null;
+let batchResults = null;
+
+// ── Tab switching ────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
 }
-function fmt(n,pct=false){return pct?(n>=0?'+':'')+n.toFixed(1)+'%':'$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0});}
-function cc(n){return n>=0?'green':'red';}
-function renderResults(data){
-  const m=data.metrics;
-  const metrics=[
-    {label:'Total Return',value:fmt(m.total_return_pct,true),cls:cc(m.total_return_pct),sub:`vs ${fmt(m.benchmark_return_pct,true)} buy-hold`},
-    {label:'Annualized',value:fmt(m.annualized_return_pct,true),cls:cc(m.annualized_return_pct),sub:`Sharpe ${m.sharpe_ratio.toFixed(2)}`},
-    {label:'Max Drawdown',value:fmt(m.max_drawdown_pct,true),cls:m.max_drawdown_pct<-20?'red':'amber',sub:'Peak to trough'},
-    {label:'Win Rate',value:m.win_rate_pct.toFixed(0)+'%',cls:m.win_rate_pct>=60?'green':'amber',sub:`${m.winning_trades}/${m.total_trades} trades`},
-    {label:'Alpha',value:fmt(m.alpha_pct,true),cls:cc(m.alpha_pct),sub:'vs SPY'},
-    {label:'Profit Factor',value:m.profit_factor===1e9?'inf':m.profit_factor.toFixed(2),cls:m.profit_factor>=1.5?'green':'amber',sub:'Win/loss gross'},
-    {label:'Avg Hold',value:m.avg_hold_days.toFixed(0)+'d',cls:'',sub:'Per trade'},
-    {label:'Trades',value:m.total_trades,cls:'',sub:`${data.start_date} to ${data.end_date}`},
-  ];
-  document.getElementById('metricsGrid').innerHTML=metrics.map(m=>`<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value ${m.cls}">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`).join('');
-  const dates=Object.keys(data.equity_curve),ev=Object.values(data.equity_curve),bv=Object.values(data.benchmark_curve);
-  if(chart)chart.destroy();
-  chart=new Chart(document.getElementById('equityChart').getContext('2d'),{
-    type:'line',
-    data:{labels:dates,datasets:[
-      {label:'Strategy',data:ev,borderColor:'#35996A',backgroundColor:'rgba(53,153,106,0.06)',borderWidth:2,fill:true,tension:0.2,pointRadius:0},
-      {label:'Buy & Hold SPY',data:bv,borderColor:'#6b6966',borderWidth:1.5,borderDash:[5,3],fill:false,tension:0.2,pointRadius:0}
+
+// ── Preset selector ────────────────────────────────────────────────────────────
+function setPreset(start, end) {
+  document.getElementById('start_date').value = start;
+  document.getElementById('end_date').value = end;
+  document.querySelectorAll('.preset-btn').forEach(b => b.style.borderColor = '');
+  event.target.style.borderColor = 'var(--green)';
+  event.target.style.color = 'var(--text)';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────────────
+const fmtPct = (n, plus=true) => (n >= 0 && plus ? '+' : '') + n.toFixed(1) + '%';
+const fmtNum = n => n >= 0 ? '+$' + n.toLocaleString('en-US', {maximumFractionDigits:0}) : '-$' + Math.abs(n).toLocaleString('en-US', {maximumFractionDigits:0});
+const cc = n => n >= 0 ? 'green' : 'red';
+
+function buildChart(canvasId, data, existingChart) {
+  if (existingChart) existingChart.destroy();
+  const dates = Object.keys(data.equity_curve);
+  const ev = Object.values(data.equity_curve);
+  const bv = Object.values(data.benchmark_curve);
+  return new Chart(document.getElementById(canvasId).getContext('2d'), {
+    type: 'line',
+    data: { labels: dates, datasets: [
+      {label:'Strategy', data:ev, borderColor:'#35996A', backgroundColor:'rgba(53,153,106,0.06)', borderWidth:2, fill:true, tension:0.2, pointRadius:0},
+      {label:'Buy & Hold SPY', data:bv, borderColor:'#6b6966', borderWidth:1.5, borderDash:[5,3], fill:false, tension:0.2, pointRadius:0}
     ]},
-    options:{responsive:true,interaction:{mode:'index',intersect:false},
-      plugins:{legend:{labels:{color:'#f0ede8',font:{family:'DM Mono',size:11},boxWidth:16}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: $${c.parsed.y.toLocaleString()}`}}},
+    options: { responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#f0ede8',font:{family:'DM Mono',size:11},boxWidth:16}},
+        tooltip:{callbacks:{label:c=>`${c.dataset.label}: $${c.parsed.y.toLocaleString()}`}}},
       scales:{
         x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6966',font:{family:'DM Mono',size:10},maxTicksLimit:10}},
         y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#6b6966',font:{family:'DM Mono',size:10},callback:v=>`$${v.toLocaleString()}`}}
       }}
   });
-  const isZ=data.strategy==='0dte_iron_condor';
-  document.getElementById('tradeTableTitle').textContent=`Trade Log (${data.trades.length} trades)`;
-  document.getElementById('tradeHead').innerHTML=isZ?'<tr><th>Date</th><th>Puts</th><th>Calls</th><th>Credit</th><th>P&L</th><th>Reason</th><th>VIX</th></tr>':'<tr><th>Opened</th><th>Closed</th><th>Short</th><th>Long</th><th>DTE</th><th>Credit</th><th>P&L</th><th>Reason</th></tr>';
-  document.getElementById('tradeBody').innerHTML=[...data.trades].slice(-50).reverse().map(t=>{
-    const pc=t.pnl_dollars>=0?'green':'red',pf=(t.pnl_dollars>=0?'+':'')+'$'+Math.abs(t.pnl_dollars).toFixed(0);
-    return isZ?`<tr><td>${t.open_date}</td><td>${t.long_strike}/${t.short_strike}P</td><td>${t.call_short||''}/${t.call_long||''}C</td><td class="green">$${t.credit_received.toFixed(2)}</td><td class="${pc}">${pf}</td><td style="color:var(--muted);font-size:11px;">${t.close_reason}</td><td>${t.vix_at_open.toFixed(1)}</td></tr>`
-      :`<tr><td>${t.open_date}</td><td>${t.close_date}</td><td>${t.short_strike}</td><td>${t.long_strike}</td><td>${t.dte_at_open}</td><td class="green">$${t.credit_received.toFixed(2)}</td><td class="${pc}">${pf}</td><td style="color:var(--muted);font-size:11px;">${t.close_reason}</td></tr>`;
+}
+
+// ── Single run ─────────────────────────────────────────────────────────────────────
+async function runSingle() {
+  const btn = document.getElementById('runBtn');
+  const bar = document.getElementById('singleBar');
+  const fill = document.getElementById('singleBarFill');
+  const err = document.getElementById('singleError');
+  const res = document.getElementById('singleResults');
+  btn.disabled = true; err.style.display = 'none'; res.style.display = 'none';
+  bar.style.display = 'block'; fill.style.width = '20%';
+  setTimeout(() => fill.style.width = '60%', 500);
+  try {
+    const r = await fetch('/api/backtest/run', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        strategy: document.getElementById('strategy').value,
+        start_date: document.getElementById('start_date').value,
+        end_date: document.getElementById('end_date').value,
+        capital: parseFloat(document.getElementById('capital').value)
+      })});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Failed'); }
+    singleResult = await r.json();
+    fill.style.width = '100%';
+    setTimeout(() => { bar.style.display = 'none'; fill.style.width = '0%'; }, 300);
+    renderSingle(singleResult);
+    document.getElementById('exportSingleBtn').style.display = 'block';
+  } catch(e) {
+    err.textContent = e.message; err.style.display = 'block';
+    bar.style.display = 'none';
+  } finally { btn.disabled = false; }
+}
+
+function renderSingle(data) {
+  const m = data.metrics;
+  const metrics = [
+    {label:'Total Return', value:fmtPct(m.total_return_pct), cls:cc(m.total_return_pct), sub:`vs ${fmtPct(m.benchmark_return_pct)} buy-hold`},
+    {label:'Annualized',   value:fmtPct(m.annualized_return_pct), cls:cc(m.annualized_return_pct), sub:`Sharpe ${m.sharpe_ratio.toFixed(2)}`},
+    {label:'Max Drawdown', value:fmtPct(m.max_drawdown_pct), cls:m.max_drawdown_pct < -20 ? 'red' : 'amber', sub:'Peak to trough'},
+    {label:'Win Rate',     value:m.win_rate_pct.toFixed(0)+'%', cls:m.win_rate_pct >= 60 ? 'green' : 'amber', sub:`${m.winning_trades}/${m.total_trades} trades`},
+    {label:'Alpha',        value:fmtPct(m.alpha_pct), cls:cc(m.alpha_pct), sub:'vs SPY'},
+    {label:'Profit Factor',value:m.profit_factor > 999 ? '&infin;' : m.profit_factor.toFixed(2), cls:m.profit_factor >= 1.5 ? 'green' : 'amber', sub:'Gross win/loss'},
+    {label:'Avg Hold',     value:m.avg_hold_days.toFixed(0)+'d', cls:'', sub:'Per trade'},
+    {label:'Trades',       value:m.total_trades, cls:'', sub:`${data.start_date} &rarr; ${data.end_date}`},
+  ];
+  document.getElementById('metricsGrid').innerHTML = metrics.map(m =>
+    `<div class="metric"><div class="metric-label">${m.label}</div><div class="metric-value ${m.cls}">${m.value}</div><div class="metric-sub">${m.sub}</div></div>`
+  ).join('');
+  singleChart = buildChart('equityChart', data, singleChart);
+  const isZ = data.strategy === '0dte_iron_condor';
+  document.getElementById('tradeTitle').textContent = `Trade Log (${data.trades.length} trades)`;
+  document.getElementById('tradeHead').innerHTML = isZ
+    ? '<tr><th>Date</th><th>Puts</th><th>Calls</th><th>Credit</th><th>P&L</th><th>Reason</th><th>VIX</th></tr>'
+    : '<tr><th>Opened</th><th>Closed</th><th>Short</th><th>Long</th><th>DTE</th><th>Credit</th><th>P&L</th><th>Reason</th></tr>';
+  document.getElementById('tradeBody').innerHTML = [...data.trades].slice(-50).reverse().map(t => {
+    const pc = t.pnl_dollars >= 0 ? 'green' : 'red';
+    const pf = (t.pnl_dollars >= 0 ? '+' : '') + '$' + Math.abs(t.pnl_dollars).toFixed(0);
+    return isZ
+      ? `<tr><td>${t.open_date}</td><td>${t.long_strike}/${t.short_strike}P</td><td>${t.call_short||''}/${t.call_long||''}C</td><td class="green">$${t.credit_received.toFixed(2)}</td><td class="${pc}">${pf}</td><td style="color:var(--muted);font-size:10px;">${t.close_reason}</td><td>${t.vix_at_open.toFixed(1)}</td></tr>`
+      : `<tr><td>${t.open_date}</td><td>${t.close_date}</td><td>${t.short_strike}</td><td>${t.long_strike}</td><td>${t.dte_at_open}</td><td class="green">$${t.credit_received.toFixed(2)}</td><td class="${pc}">${pf}</td><td style="color:var(--muted);font-size:10px;">${t.close_reason}</td></tr>`;
   }).join('');
-  document.getElementById('results').style.display='block';
+  document.getElementById('singleResults').style.display = 'block';
+}
+
+function exportSingle() {
+  if (!singleResult) return;
+  downloadJson(singleResult, `backtest_${singleResult.strategy}_${singleResult.start_date}_${singleResult.end_date}.json`);
+}
+
+// ── Batch regime testing ─────────────────────────────────────────────────────────
+const REGIME_CONTEXT = {
+  '2018_crash':    { badge: 'favorable',   label: 'High VIX correction' },
+  '2019_bull':     { badge: 'unfavorable', label: 'Low VIX bull run' },
+  '2020_covid':    { badge: 'favorable',   label: 'Extreme VIX spike' },
+  '2021_bull':     { badge: 'unfavorable', label: 'Low VIX bull run' },
+  '2022_rates':    { badge: 'favorable',   label: 'Sustained high VIX' },
+  '2023_recovery': { badge: 'unfavorable', label: 'VIX declining' },
+  '2024_bull':     { badge: 'unfavorable', label: 'Low VIX AI bull' },
+  '2025_bull':     { badge: 'unfavorable', label: 'Low VIX bull run' },
+  '2026_ytd':      { badge: 'favorable',   label: 'Elevated VIX correction' },
+  'full_cycle':    { badge: 'neutral',     label: 'Full market cycle' },
+};
+
+async function runAllRegimes() {
+  const btn = document.getElementById('batchRunBtn');
+  const bar = document.getElementById('batchBar');
+  const fill = document.getElementById('batchBarFill');
+  const status = document.getElementById('batchStatus');
+  const err = document.getElementById('batchError');
+  btn.disabled = true; err.style.display = 'none';
+  bar.style.display = 'block'; status.style.display = 'block';
+  fill.style.width = '5%';
+  status.textContent = 'Starting regime sweep (this takes 2–4 minutes on first run while data is fetched and cached)...';
+  try {
+    const r = await fetch('/api/backtest/batch', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        strategy: document.getElementById('batchStrategy').value,
+        capital: parseFloat(document.getElementById('batchCapital').value),
+      })});
+    fill.style.width = '80%';
+    status.textContent = 'Processing results...';
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error || 'Batch failed'); }
+    const data = await r.json();
+    batchResults = data;
+    fill.style.width = '100%';
+    setTimeout(() => { bar.style.display = 'none'; fill.style.width = '0%'; }, 300);
+    status.style.display = 'none';
+    renderBatch(data);
+    document.getElementById('exportBatchBtn').style.display = 'block';
+  } catch(e) {
+    err.textContent = e.message; err.style.display = 'block';
+    bar.style.display = 'none'; status.style.display = 'none';
+  } finally { btn.disabled = false; }
+}
+
+function renderBatch(data) {
+  const tbody = document.getElementById('regimeBody');
+  tbody.innerHTML = data.results.map((r, idx) => {
+    const m = r.metrics;
+    const ctx = REGIME_CONTEXT[r.period_key] || { badge: 'neutral', label: '' };
+    const badgeClass = `badge-${ctx.badge}`;
+    const alphaClass = cc(m.alpha_pct);
+    const retClass = cc(m.total_return_pct);
+    return `<tr class="regime-row" onclick="showRegimeDetail(${idx})" data-idx="${idx}">
+      <td style="font-weight:500;">${r.regime_label}</td>
+      <td><span class="badge ${badgeClass}">${ctx.label}</span></td>
+      <td style="text-align:right;" class="${retClass}">${fmtPct(m.total_return_pct)}</td>
+      <td style="text-align:right;color:var(--muted);">${fmtPct(m.benchmark_return_pct)}</td>
+      <td style="text-align:right;" class="${alphaClass}">${fmtPct(m.alpha_pct)}</td>
+      <td style="text-align:right;color:var(--muted);">${m.sharpe_ratio.toFixed(2)}</td>
+      <td style="text-align:right;color:var(--amber);">${fmtPct(m.max_drawdown_pct)}</td>
+      <td style="text-align:right;">${m.win_rate_pct.toFixed(0)}%</td>
+      <td style="text-align:right;color:var(--muted);">${m.total_trades}</td>
+    </tr>`;
+  }).join('');
+  if (data.errors && data.errors.length > 0) {
+    tbody.innerHTML += data.errors.map(e =>
+      `<tr><td colspan="9" style="color:var(--red);">${e.label || e.period}: ${e.error}</td></tr>`
+    ).join('');
+  }
+  document.getElementById('regimeTable').style.display = 'block';
+  document.getElementById('interpretGuide').style.display = 'block';
+}
+
+function showRegimeDetail(idx) {
+  document.querySelectorAll('.regime-row').forEach(r => r.classList.remove('selected'));
+  document.querySelector(`[data-idx="${idx}"]`).classList.add('selected');
+  const r = batchResults.results[idx];
+  document.getElementById('regimeDetailTitle').textContent = `${r.regime_label} &mdash; Equity Curve vs SPY`;
+  regimeChart = buildChart('regimeChart', r, regimeChart);
+  document.getElementById('regimeDetail').style.display = 'block';
+  document.getElementById('regimeDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function exportBatch() {
+  if (!batchResults) return;
+  downloadJson(batchResults, `regime_sweep_${batchResults.strategy}_${new Date().toISOString().slice(0,10)}.json`);
+}
+
+// ── JSON export helper ───────────────────────────────────────────────────────────
+function downloadJson(data, filename) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
 }
 </script>
 </body></html>
